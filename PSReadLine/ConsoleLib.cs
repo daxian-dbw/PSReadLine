@@ -35,19 +35,12 @@ namespace Microsoft.PowerShell.Internal
         protected int _unixCursorSize = 25;
         public virtual int CursorSize
         {
-            get => PlatformWindows.IsConsoleApiAvailable(input: false, output: true) ? Console.CursorSize : _unixCursorSize;
+            get => _unixCursorSize;
             set
             {
-                if (PlatformWindows.IsConsoleApiAvailable(input: false, output: true))
-                {
-                    Console.CursorSize = value;
-                }
-                else
-                {
-                    _unixCursorSize = value;
-                    // Solid blinking block or blinking vertical bar
-                    Write(value > 50 ? "\x1b[2 q" : "\x1b[5 q");
-                }
+                _unixCursorSize = value;
+                // Solid blinking block or blinking vertical bar
+                Write(value > 50 ? "\x1b[2 q" : "\x1b[5 q");
             }
         }
 
