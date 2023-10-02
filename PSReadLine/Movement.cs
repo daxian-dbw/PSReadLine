@@ -60,7 +60,7 @@ namespace Microsoft.PowerShell
                 }
                 else
                 {
-                    SetCursorPosition(_singleton._current + numericArg);
+                    SetCursorPosition(GetPositionForCursorMove(numericArg, forward: true));
                 }
             }
         }
@@ -73,7 +73,7 @@ namespace Microsoft.PowerShell
         {
             if (TryGetArgAsInt(arg, out var numericArg, 1))
             {
-                SetCursorPosition(_singleton._current - numericArg);
+                SetCursorPosition(GetPositionForCursorMove(numericArg, forward: false));
             }
         }
 
@@ -115,7 +115,7 @@ namespace Microsoft.PowerShell
             if (count < 0)
             {
                 var start = GetBeginningOfLinePos(_singleton._current);
-                var newCurrent = Math.Max(start, _singleton._current + count);
+                var newCurrent = Math.Max(start, GetPositionForCursorMove(-count, forward: false));
                 if (_singleton._current != newCurrent)
                 {
                     _singleton.MoveCursor(newCurrent);
@@ -126,7 +126,7 @@ namespace Microsoft.PowerShell
                 // when in the VI command mode, 'end' is the position of the last character;
                 // when in the VI insert mode, 'end' is 1 char beyond the last character.
                 var end = GetEndOfLogicalLinePos(_singleton._current) + 1 + ViEndOfLineFactor;
-                var newCurrent = Math.Min(end, _singleton._current + count);
+                var newCurrent = Math.Min(end, GetPositionForCursorMove(count, forward: true));
                 if (_singleton._current != newCurrent)
                 {
                     _singleton.MoveCursor(newCurrent);
@@ -215,7 +215,7 @@ namespace Microsoft.PowerShell
             }
             else
             {
-                point = point ?? ConvertOffsetToPoint(_current);
+                point ??= ConvertOffsetToPoint(_current);
                 int newY = point.Value.Y + lineOffset;
 
                 Point newPoint = new Point()

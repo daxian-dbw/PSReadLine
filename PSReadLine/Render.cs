@@ -1197,13 +1197,24 @@ namespace Microsoft.PowerShell
                 }
                 else
                 {
-                    int size = LengthInBufferCells(c);
+                    int size;
+                    if (char.IsHighSurrogate(c) && i + 1 < offset && char.IsSurrogatePair(c, _buffer[i + 1]))
+                    {
+                        // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
+                        i++;
+                        size = 2;
+                    }
+                    else
+                    {
+                        size = LengthInBufferCells(c);
+                    }
+
                     x += size;
                     // Wrap?  No prompt when wrapping
                     if (x >= bufferWidth)
                     {
                         // If character didn't fit on current line, it will move entirely to the next line.
-                        x = ((x == bufferWidth) ? 0 : size);
+                        x = (x == bufferWidth) ? 0 : size;
 
                         // If cursor is at column 0 and the next character is newline, let the next loop
                         // iteration increment y.
@@ -1218,7 +1229,12 @@ namespace Microsoft.PowerShell
             // If next character actually exists, and isn't newline, check if wider than the space left on the current line.
             if (_buffer.Length > offset && _buffer[offset] != '\n')
             {
-                int size = LengthInBufferCells(_buffer[offset]);
+                char c = _buffer[offset];
+                // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
+                int size = char.IsHighSurrogate(c) && offset + 1 < _buffer.Length && char.IsSurrogatePair(c, _buffer[offset + 1])
+                    ? 2
+                    : LengthInBufferCells(c);
+
                 if (x + size > bufferWidth)
                 {
                     // Character was wider than remaining space, so character, and cursor, appear on next line.
@@ -1246,6 +1262,7 @@ namespace Microsoft.PowerShell
                 {
                     return offset;
                 }
+
                 char c = _buffer[offset];
                 if (c == '\n')
                 {
@@ -1260,13 +1277,24 @@ namespace Microsoft.PowerShell
                 }
                 else
                 {
-                    int size = LengthInBufferCells(c);
+                    int size;
+                    if (char.IsHighSurrogate(c) && offset + 1 < _buffer.Length && char.IsSurrogatePair(c, _buffer[offset + 1]))
+                    {
+                        // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
+                        offset++;
+                        size = 2;
+                    }
+                    else
+                    {
+                        size = LengthInBufferCells(c);
+                    }
+
                     x += size;
                     // Wrap?  No prompt when wrapping
                     if (x >= bufferWidth)
                     {
                         // If character didn't fit on current line, it will move entirely to the next line.
-                        x = ((x == bufferWidth) ? 0 : size);
+                        x = (x == bufferWidth) ? 0 : size;
 
                         // If cursor is at column 0 and the next character is newline, let the next loop
                         // iteration increment y.

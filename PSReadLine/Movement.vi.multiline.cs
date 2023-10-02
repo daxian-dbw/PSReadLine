@@ -118,6 +118,13 @@ namespace Microsoft.PowerShell
                 ? endOfTargetLinePos
                 : Math.Min(startOfTargetLinePos + _moveToLineDesiredColumn, endOfTargetLinePos);
 
+            if (newCurrent < endOfTargetLinePos && newCurrent > startOfTargetLinePos
+                && char.IsSurrogatePair(_buffer[newCurrent - 1], _buffer[newCurrent]))
+            {
+                // If the new current is pointing at the low surrogate of a surrogate pair, move it to the high surrogate
+                newCurrent--;
+            }
+
             MoveCursor(newCurrent);
         }
     }

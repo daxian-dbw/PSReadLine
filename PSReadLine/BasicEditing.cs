@@ -188,14 +188,54 @@ namespace Microsoft.PowerShell
             {
                 int qty = arg as int? ?? 1;
                 if (qty < 1) return; // Ignore useless counts
-                qty = Math.Min(qty, _singleton._current);
 
-                int startDeleteIndex = _singleton._current - qty;
+                int startDeleteIndex = qty >= _singleton._current ? 0 : GetPositionForCursorMove(qty, forward: false);
+                int count = _singleton._current - startDeleteIndex;
 
-                _singleton.RemoveTextToViRegister(startDeleteIndex, qty, BackwardDeleteChar, arg, !InViEditMode());
+                _singleton.RemoveTextToViRegister(startDeleteIndex, count, BackwardDeleteChar, arg, !InViEditMode());
                 _singleton._current = startDeleteIndex;
                 _singleton.Render();
             }
+        }
+
+        private static int GetPositionForCursorMove(int count, bool forward)
+        {
+            int current = _singleton._current;
+            var buffer = _singleton._buffer;
+
+            if (forward)
+            {
+                // Move the cursor forward for the 'count' number of chars.
+                int i = current;
+                for (; i < buffer.Length && count > 0; i++)
+                {
+                    count--;
+                    if (char.IsHighSurrogate(buffer[i]) && i < buffer.Length - 1 && char.IsSurrogatePair(buffer[i], buffer[i + 1]))
+                    {
+                        // A surrogate pair (an emoji) should be treated as one char.
+                        i++;
+                    }
+                }
+
+                return i;
+            }
+
+            // Move the cursor backward for the 'count' number of chars.
+            for (int i = current - 1; i > 0; i--)
+            {
+                if (char.IsLowSurrogate(buffer[i]) && i > 0 && char.IsSurrogatePair(buffer[i - 1], buffer[i]))
+                {
+                    // A surrogate pair (a emoji) should be treated as one char.
+                    i--;
+                }
+
+                if (--count is 0)
+                {
+                    return i;
+                }
+            }
+
+            return 0;
         }
 
         private void DeleteCharImpl(int qty, bool orExit)
@@ -211,9 +251,10 @@ namespace Microsoft.PowerShell
             {
                 if (_current < _buffer.Length)
                 {
-                    qty = Math.Min(qty, _singleton._buffer.Length - _singleton._current);
+                    int maxCharCount = _buffer.Length - _current;
+                    int len = qty >= maxCharCount ? maxCharCount : GetPositionForCursorMove(qty, forward: true) - _current;
 
-                    RemoveTextToViRegister(_current, qty, DeleteChar, qty, !InViEditMode());
+                    RemoveTextToViRegister(_current, len, DeleteChar, qty, !InViEditMode());
                     if (_current >= _buffer.Length)
                     {
                         _current = Math.Max(0, _buffer.Length + ViEndOfLineFactor);
