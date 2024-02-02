@@ -200,6 +200,19 @@ namespace Microsoft.PowerShell
 
         private static int GetPositionForCursorMove(int count, bool forward)
         {
+            if (count is 0)
+            {
+                // Return the current cursor position when no movement is needed.
+                return _singleton._current;
+            }
+
+            if (count < 0)
+            {
+                // Reverse the cursor movement direction in case count is negative.
+                count = -count;
+                forward = !forward;
+            }
+
             int current = _singleton._current;
             var buffer = _singleton._buffer;
 
@@ -225,7 +238,7 @@ namespace Microsoft.PowerShell
             {
                 if (char.IsLowSurrogate(buffer[i]) && i > 0 && char.IsSurrogatePair(buffer[i - 1], buffer[i]))
                 {
-                    // A surrogate pair (a emoji) should be treated as one char.
+                    // A surrogate pair (an emoji) should be treated as one char.
                     i--;
                 }
 

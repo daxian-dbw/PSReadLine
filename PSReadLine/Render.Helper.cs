@@ -2,13 +2,16 @@
 Copyright (c) Microsoft Corporation.  All rights reserved.
 --********************************************************************/
 
-using System;
 using System.Text;
+using Wcwidth;
 
 namespace Microsoft.PowerShell
 {
     public partial class PSConsoleReadLine
     {
+        // A two-dimensional array that represents all ranges of wide Unicode characters.
+        private static readonly uint[,] _wideTable;
+
         private void WriteBlankLines(int count)
         {
             _console.BlankRestOfLine();
@@ -57,7 +60,7 @@ namespace Microsoft.PowerShell
             for (var i = start; i < end; i++)
             {
                 var c = str[i];
-                if (c == 0x1b && (i+1) < end && str[i+1] == '[')
+                if (c == 0x1b && (i + 1) < end && str[i + 1] == '[')
                 {
                     // Simple escape sequence skipping
                     i += 2;
@@ -66,7 +69,16 @@ namespace Microsoft.PowerShell
 
                     continue;
                 }
-                sum += LengthInBufferCells(c);
+
+                if (char.IsHighSurrogate(c) && (i + 1) < end && char.IsSurrogatePair(c, str[i + 1]))
+                {
+                    i++;
+                    sum += 2;
+                }
+                else
+                {
+                    sum += LengthInBufferCells(c);
+                }
             }
             return sum;
         }
@@ -86,7 +98,16 @@ namespace Microsoft.PowerShell
 
                     continue;
                 }
-                sum += LengthInBufferCells(c);
+
+                if (char.IsHighSurrogate(c) && (i + 1) < end && char.IsSurrogatePair(c, sb[i + 1]))
+                {
+                    i++;
+                    sum += 2;
+                }
+                else
+                {
+                    sum += LengthInBufferCells(c);
+                }
             }
             return sum;
         }
@@ -99,7 +120,22 @@ namespace Microsoft.PowerShell
                 return char.IsControl(c) ? 2 : 1;
             }
 
-            return Wcwidth.UnicodeCalculator.GetWidth(c);
+            // 'Wcwidth' (https://github.com/spectreconsole/wcwidth) is a C# port implementation of the
+            // original http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c written by Markus Kuhn. It is kept
+            // up-to-date with the latest Unicode version.
+            //
+            // 'Wcwidth' may return 0 or even -1 as the width of some characters, for example, it treats
+            // all Unicode characters that belong to the 'Cf' category (Format) as zero-size characters;
+            // it also treats some characters in the 'Mn' category (NonSpacingMark) as zero-size.
+            //
+            // However, those characters do actually take up a cell in terminal, so we cannot just simply
+            // return `Wcwidth.UnicodeCalculator.GetWidth(c)` here. Instead, we keep our original logic
+            // but only replace the wide character detection with 'Wcwidth'.
+            //
+            // 'Wcwidth' is able to detect wide characters much more accurately than our old check, such
+            // as some single-Unicode emojis.
+
+            return _wideTable.Exist(c) ? 2 : 1;
         }
 
         private static string SubstringByCells(string text, int countOfCells)
@@ -125,7 +161,20 @@ namespace Microsoft.PowerShell
 
             for (int i = start; i < text.Length; i++)
             {
-                cellLength += LengthInBufferCells(text[i]);
+                char c = text[i];
+                bool isSurrogatePair = false;
+
+                if (char.IsHighSurrogate(c) && (i + 1) < text.Length && char.IsSurrogatePair(c, text[i + 1]))
+                {
+                    // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
+                    i++;
+                    cellLength += 2;
+                    isSurrogatePair = true;
+                }
+                else
+                {
+                    cellLength += LengthInBufferCells(c);
+                }
 
                 if (cellLength > countOfCells)
                 {
@@ -133,6 +182,11 @@ namespace Microsoft.PowerShell
                 }
 
                 charLength++;
+                if (isSurrogatePair)
+                {
+                    // Also include the low-surrogate char.
+                    charLength++;
+                }
 
                 if (cellLength == countOfCells)
                 {
@@ -155,14 +209,33 @@ namespace Microsoft.PowerShell
 
             for (int i = start; i >= 0; i--)
             {
-                cellLength += LengthInBufferCells(text[i]);
+                char c = text[i];
+                bool isSurrogatePair = false;
+
+                if (char.IsLowSurrogate(c) && (i - 1) >= 0 && char.IsSurrogatePair(text[i - 1], c))
+                {
+                    // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
+                    i--;
+                    cellLength += 2;
+                    isSurrogatePair = true;
+                }
+                else
+                {
+                    cellLength += LengthInBufferCells(c);
+                }
 
                 if (cellLength > countOfCells)
                 {
+                    // Also include the high-surrogate char.
                     return charLength;
                 }
 
                 charLength++;
+                if (isSurrogatePair)
+                {
+
+                    charLength++;
+                }
 
                 if (cellLength == countOfCells)
                 {

@@ -1007,7 +1007,20 @@ namespace Microsoft.PowerShell
                     for (; start <= end; start++)
                     {
                         char ch = tooltip[start];
-                        int charInCells = LengthInBufferCells(ch);
+
+                        int charInCells;
+                        bool isSurrogatePair = false;
+                        if (char.IsHighSurrogate(ch) && (start + 1) <= end && char.IsSurrogatePair(ch, tooltip[start + 1]))
+                        {
+                            // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
+                            start++;
+                            charInCells = 2;
+                            isSurrogatePair = true;
+                        }
+                        else
+                        {
+                            charInCells = LengthInBufferCells(ch);
+                        }
 
                         cellCount += charInCells;
                         if (cellCount > windowWidth)
@@ -1025,6 +1038,11 @@ namespace Microsoft.PowerShell
                         }
 
                         buff.Append(ch);
+                        if (isSurrogatePair)
+                        {
+                            // Also include the low-surrogate char.
+                            buff.Append(tooltip[start]);
+                        }
                     }
                 }
                 while (linesLeft >= 0 && newlineIndex >= 0);

@@ -74,7 +74,18 @@ namespace Microsoft.PowerShell
                     continue;
                 }
 
-                int size = PSConsoleReadLine.LengthInBufferCells(c);
+                int size;
+                if (char.IsHighSurrogate(c) && (i + 1) < Line.Length && char.IsSurrogatePair(c, Line[i + 1]))
+                {
+                    // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
+                    i++;
+                    size = 2;
+                }
+                else
+                {
+                    size = PSConsoleReadLine.LengthInBufferCells(c);
+                }
+
                 if (x == 0 && lenLastPhysicalLine > 0)
                 {
                     y++;
@@ -1198,7 +1209,7 @@ namespace Microsoft.PowerShell
                 else
                 {
                     int size;
-                    if (char.IsHighSurrogate(c) && i + 1 < offset && char.IsSurrogatePair(c, _buffer[i + 1]))
+                    if (char.IsHighSurrogate(c) && (i + 1) < offset && char.IsSurrogatePair(c, _buffer[i + 1]))
                     {
                         // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
                         i++;
@@ -1231,7 +1242,7 @@ namespace Microsoft.PowerShell
             {
                 char c = _buffer[offset];
                 // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
-                int size = char.IsHighSurrogate(c) && offset + 1 < _buffer.Length && char.IsSurrogatePair(c, _buffer[offset + 1])
+                int size = char.IsHighSurrogate(c) && (offset + 1) < _buffer.Length && char.IsSurrogatePair(c, _buffer[offset + 1])
                     ? 2
                     : LengthInBufferCells(c);
 
@@ -1278,7 +1289,7 @@ namespace Microsoft.PowerShell
                 else
                 {
                     int size;
-                    if (char.IsHighSurrogate(c) && offset + 1 < _buffer.Length && char.IsSurrogatePair(c, _buffer[offset + 1]))
+                    if (char.IsHighSurrogate(c) && (offset + 1) < _buffer.Length && char.IsSurrogatePair(c, _buffer[offset + 1]))
                     {
                         // We treat a surrogate pair (e.g. an emoji) as one character with the cell width 2.
                         offset++;
@@ -1403,7 +1414,16 @@ namespace Microsoft.PowerShell
                 }
 
                 visibleCharIndex++;
-                size = LengthInBufferCells(c);
+                if (char.IsHighSurrogate(c) && (i + 1) < line.Length && char.IsSurrogatePair(c, line[i + 1]))
+                {
+                    // We treat a surrogate pair (e.g. an emoji) as one visible character with the cell width 2.
+                    i++;
+                    size = 2;
+                }
+                else
+                {
+                    size = LengthInBufferCells(c);
+                }
 
                 if (visibleCharIndex == offset.VisibleCharIndex)
                 {
@@ -1562,9 +1582,19 @@ namespace Microsoft.PowerShell
                     continue;
                 }
 
-                int size = LengthInBufferCells(c);
-                x += size;
+                int size;
+                if (char.IsHighSurrogate(c) && (i + 1) < line.Length && char.IsSurrogatePair(c, line[i + 1]))
+                {
+                    // We treat a surrogate pair (e.g. an emoji) as one visible character with the cell width 2.
+                    i++;
+                    size = 2;
+                }
+                else
+                {
+                    size = LengthInBufferCells(c);
+                }
 
+                x += size;
                 if (x == bufferWidth)
                 {
                     x = 0;

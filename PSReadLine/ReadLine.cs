@@ -19,6 +19,7 @@ using System.Threading;
 using Microsoft.PowerShell.Commands;
 using Microsoft.PowerShell.Internal;
 using Microsoft.PowerShell.PSReadLine;
+using Wcwidth;
 
 [module: SuppressMessage("Microsoft.Design", "CA1014:MarkAssembliesWithClsCompliant")]
 [module: SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed")]
@@ -650,6 +651,7 @@ namespace Microsoft.PowerShell
         {
             _singleton = new PSConsoleReadLine();
             _viRegister = new ViRegister(_singleton);
+            _wideTable = WideTable.GetTable(Unicode.Version_15_1_0);
             InitializePropertyInfo();
         }
 
